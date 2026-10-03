@@ -154,10 +154,33 @@ Set `uploadUrl` and pasted images upload to your backend; the response
 `{ "url": "..." }` becomes the inserted image source. Without it, images
 fall back to base64 automatically.
 
-A minimal receiver (`server.py`, Python stdlib only) ships in the repository:
+### Ready-made receiver (included)
+
+A zero-dependency receiver (`server.py`, Python 3 stdlib only) ships in the repository:
 
 ```bash
-python server.py        # POST /upload on port 1688, serves uploads/ statically
+python server.py          # POST /upload on port 1688, serves the demo + uploads/
+python server.py 9000     # custom port
+```
+
+What it does:
+
+- `POST /upload` — accepts `multipart/form-data` (field `file`) or raw image bodies; returns `{ "url": "/uploads/xxx.png" }`
+- `GET /uploads/<name>` — serves uploaded files statically
+- `GET /` — serves the editor demo (index.html) and opens it in your browser automatically
+- Filenames are sanitized (safe charset + UUID suffix); extensions are derived from magic bytes when missing
+- CORS fully open, so the editor works from `file://` or any origin
+
+> Note: it's a development/standalone tool — not hardened for hostile networks.
+
+### Roll your own
+
+Any endpoint that accepts a POST and answers `{"url": "..."}` works:
+
+```js
+ME.init({
+  uploadUrl: 'https://your.api/upload'   // that's all
+});
 ```
 
 ---
@@ -189,7 +212,7 @@ Each demo page is itself the running editor — the content is the documentation
 │   └── assets/
 ├── scripts/
 │   └── sync_core.js    # sync engine core into vue/react variants
-├── server.py           # optional paste-image upload receiver
+├── server.py           # optional paste-image upload receiver (Python stdlib only)
 └── package.json
 ```
 
