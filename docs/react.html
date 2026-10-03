@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>React 18 Integration — ME.js</title>
+  <meta name="description" content="Use ME.js WYSIWYG Markdown editor in React 18 with a controlled component. Single file, zero dependency.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <script src="assets/nav.js"></script>
+  <script>MESite.nav('react');</script>
+
+  <!-- ===== Hero banner ===== -->
+  <header class="hero">
+    <h1><span class="brand">ME.js</span> Editor for React 18</h1>
+    <p>
+      One file: the full editor engine + React 18 adapter. A controlled component with
+      value/onChange — no build step, no JSX, no extra dependencies.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#demo">Try it now</a>
+      <a class="btn btn-ghost" href="https://github.com/juicy696/markdown-editor" target="_blank" rel="noopener">Star on GitHub</a>
+    </div>
+  </header>
+
+  <!-- ===== Live demo ===== -->
+  <section class="section" id="demo">
+    <h2>Live Demo</h2>
+    <p class="section-sub">
+      A real &lt;MeEditor&gt; React component running on this page — the content is this version's own documentation.
+      Edit it, then check the live value below.
+    </p>
+    <div id="root">
+      <div class="demo-card">
+        <me-editor-react title="ME React Editor"></me-editor-react>
+      </div>
+      <p style="color:#57606a; margin:16px 0 4px;">Live value (the underlying Markdown, updated as you edit):</p>
+      <pre class="code" id="live-md"></pre>
+    </div>
+  </section>
+
+  <!-- ===== Usage ===== -->
+  <section class="section" id="usage">
+    <h2>How to Use in React</h2>
+    <p class="section-sub">me-react.js contains the full editor engine — this single file is all you need.</p>
+
+    <div class="usage">
+      <h3>Direct CDN include <span class="badge">Recommended</span></h3>
+      <pre class="code">&lt;script src="https://unpkg.com/react@18/umd/react.production.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"&gt;&lt;/script&gt;
+&lt;script src="me-react.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  const e = React.createElement;
+  function App() {
+    const [md, setMd] = React.useState('# Hello\n\nThis is **bold**.');
+    return e(MEReact.MeEditor, {
+      value: md,               <span class="cm">// controlled Markdown value</span>
+      onChange: setMd,         <span class="cm">// fired on every edit</span>
+      options: { title: 'My Editor' }
+    });
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+&lt;/script&gt;</pre>
+    </div>
+
+    <div class="usage">
+      <h3>Props</h3>
+      <pre class="code">{
+  value: '# md',              <span class="cm">// controlled Markdown value</span>
+  onChange: fn,               <span class="cm">// called with Markdown on every edit</span>
+  options: {
+    title: 'ME React Editor', <span class="cm">// nav bar title</span>
+    uploadUrl: '/upload',     <span class="cm">// paste-image upload endpoint</span>
+    showViewCode: true,       <span class="cm">// toolbar View-Markdown button</span>
+    showCopy: true,           <span class="cm">// toolbar Copy button</span>
+    showAudio: true,          <span class="cm">// toolbar Audio button</span>
+    showVideo: true,          <span class="cm">// toolbar Video button</span>
+    showStatusBar: true,      <span class="cm">// character count bar</span>
+    maxLength: 0              <span class="cm">// cap; count turns red when exceeded</span>
+  }
+}</pre>
+    </div>
+
+    <div class="usage">
+      <h3>Core modules</h3>
+      <pre class="code"><span class="cm">// exported for direct use anywhere in your app</span>
+MEReact.MdParser.parse('# md -> html');
+MEReact.MdSerializer.serialize(domNode);</pre>
+    </div>
+  </section>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script>document.write('<script src="assets/js/me-react.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+    const e = React.createElement;
+    const { useState } = React;
+
+    function App() {
+      const [md, setMd] = useState(`# ME React — WYSIWYG Markdown Editor
+
+A **rich text** Markdown editor as a *React 18 component*. Same editing model as the vanilla ME.js and Vue versions: edit visually, store as **Markdown** underneath.
+
+## Try it
+
+- Select text and use the toolbar
+- Click the table icon for a rows/columns dialog
+- Paste an image (upload endpoint or base64)
+
+## This component
+
+The editor you are typing in is a single controlled component:
+\`e(MEReact.MeEditor, { value, onChange })\`.
+
+The box underneath shows the live Markdown — proof that everything
+you do here is stored as clean Markdown.
+
+> Full props and options are in the Usage section below.`);
+
+      return e(React.Fragment, null,
+        e('div', { className: 'demo-card', style: { height: '70vh' } },
+          e(MEReact.MeEditor, {
+            value: md,
+            onChange: setMd,
+            options: { title: 'ME React Editor' }
+          })
+        ),
+        e('p', { style: { color: '#57606a', margin: '16px 0 4px' } },
+          'Live value (the underlying Markdown, updated as you edit):'),
+        e('pre', { className: 'code', id: 'live-md' }, md)
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+  </script>
+
+  <script>MESite.footer();</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "name": "@juicy696/markdown-editor",
+  "version": "1.0.0",
+  "description": "Zero-dependency, single-file WYSIWYG Markdown editor. Edit visually, store as Markdown. Works with vanilla JS, Vue 3 and React 18.",
+  "main": "src/me-editor.js",
+  "exports": {
+    ".": "./src/me-editor.js",
+    "./vue": "./src/me-vue.js",
+    "./react": "./src/me-react.js"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "author": "Jakey Zhu <zhuxi0906@gmail.com>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/juicy696/markdown-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/juicy696/markdown-editor/issues"
+  },
+  "homepage": "https://juicy696.github.io/markdown-editor/",
+  "keywords": [
+    "markdown",
+    "markdown-editor",
+    "wysiwyg",
+    "rich-text",
+    "vue",
+    "react",
+    "vanilla-js",
+    "zero-dependency",
+    "single-file",
+    "no-build"
+  ]
+}

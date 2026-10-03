@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Docs — ME.js</title>
+  <meta name="description" content="Full documentation for ME.js: options, toolbar features, API, architecture.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <script src="assets/nav.js"></script>
+  <script>MESite.nav('docs');</script>
+
+  <!-- ===== Hero banner ===== -->
+  <header class="hero" style="min-height:32vh;">
+    <h1><span class="brand">ME.js</span> Documentation</h1>
+    <p>Options, toolbar features, public API and architecture — everything in one place.</p>
+  </header>
+
+  <section class="section">
+    <h2 id="options">Configuration Options</h2>
+    <p class="section-sub">Passed to <code>ME.init(opts)</code> / the <code>options</code> prop (Vue &amp; React).</p>
+    <div class="usage">
+      <table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <tr style="text-align:left; border-bottom:2px solid var(--border);">
+          <th style="padding:8px;">Option</th><th style="padding:8px;">Type</th><th style="padding:8px;">Default</th><th style="padding:8px;">Description</th>
+        </tr>
+        <tr><td style="padding:8px;"><code>mount</code></td><td style="padding:8px;">string</td><td style="padding:8px;"><code>'#app'</code></td><td style="padding:8px;">CSS selector of the mount element (JS version)</td></tr>
+        <tr><td style="padding:8px;"><code>title</code></td><td style="padding:8px;">string</td><td style="padding:8px;">'ME.js Editor'</td><td style="padding:8px;">Title shown in the top nav</td></tr>
+        <tr><td style="padding:8px;"><code>placeholder</code></td><td style="padding:8px;">string</td><td style="padding:8px;">'Start writing...'</td><td style="padding:8px;">Empty-state hint</td></tr>
+        <tr><td style="padding:8px;"><code>iconsMode</code></td><td style="padding:8px;">string</td><td style="padding:8px;"><code>'remote'</code></td><td style="padding:8px;">Google Material Icons from web, or <code>'local'</code> stylesheet</td></tr>
+        <tr><td style="padding:8px;"><code>importFromContent</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Import the mount element's inner content as the initial document (JS version)</td></tr>
+        <tr><td style="padding:8px;"><code>uploadUrl</code></td><td style="padding:8px;">string</td><td style="padding:8px;"><code>null</code></td><td style="padding:8px;">Paste-image upload endpoint; falls back to base64 when unset or unreachable</td></tr>
+        <tr><td style="padding:8px;"><code>pasteImage</code></td><td style="padding:8px;">string</td><td style="padding:8px;"><code>'auto'</code></td><td style="padding:8px;">'auto' | 'base64' | 'upload'</td></tr>
+        <tr><td style="padding:8px;"><code>showViewCode</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Toolbar View-Markdown button</td></tr>
+        <tr><td style="padding:8px;"><code>showCopy</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Toolbar Copy-Markdown button</td></tr>
+        <tr><td style="padding:8px;"><code>showAudio</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Toolbar Audio insert button</td></tr>
+        <tr><td style="padding:8px;"><code>showVideo</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Toolbar Video insert button</td></tr>
+        <tr><td style="padding:8px;"><code>showStatusBar</code></td><td style="padding:8px;">boolean</td><td style="padding:8px;"><code>true</code></td><td style="padding:8px;">Bottom character-count bar</td></tr>
+        <tr><td style="padding:8px;"><code>maxLength</code></td><td style="padding:8px;">number</td><td style="padding:8px;"><code>0</code></td><td style="padding:8px;">Character cap; count turns red when exceeded (0 = unlimited)</td></tr>
+      </table>
+    </div>
+
+    <h2 id="toolbar" style="margin-top:40px;">Toolbar Features</h2>
+    <p class="section-sub">Select text and click an icon — formatting applies instantly.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Inline</h3>
+        <p>Bold (Ctrl+B) · Italic (Ctrl+I) · Strikethrough · Inline code · Text color</p>
+      </div>
+      <div class="feature-card">
+        <h3>Block</h3>
+        <p>H1 / H2 / H3 · Normal text · Blockquote · Bullet / numbered / task lists · Code block · Table (rows/columns dialog) · Horizontal rule</p>
+      </div>
+      <div class="feature-card">
+        <h3>Insert</h3>
+        <p>Link · Image (title + URL dialog) · Audio · Video · Paste images from clipboard</p>
+      </div>
+      <div class="feature-card">
+        <h3>Tools</h3>
+        <p>Eraser (clears all formatting of selection) · Undo / Redo · View Markdown source · Copy Markdown to clipboard</p>
+      </div>
+    </div>
+
+    <h2 id="api" style="margin-top:40px;">Public API <span class="badge" style="font-size:11px;color:var(--accent);background:#eeeaff;border-radius:10px;padding:2px 10px;margin-left:8px;">JS version</span></h2>
+    <p class="section-sub">All access goes through <code>ME.instance</code> (returned by <code>ME.init()</code>). Vue exposes the same methods via template ref; React via ref.</p>
+    <div class="usage">
+      <pre class="code">ME.instance.getMarkdown()          <span class="cm">// pure Markdown</span>
+ME.instance.getHTML()              <span class="cm">// rendered HTML</span>
+ME.instance.getRawHTML()           <span class="cm">// raw editor DOM HTML</span>
+ME.instance.export()               <span class="cm">// { markdown, html, mixed }</span>
+ME.instance.exportMixed()          <span class="cm">// MD + HTML blocks for tables/code</span>
+ME.instance.download('doc', 'md')  <span class="cm">// 'md' | 'html' | 'mixed'</span>
+ME.instance.setMarkdown('# ...')   <span class="cm">// import Markdown string</span>
+ME.instance.importFromElement('#src')  <span class="cm">// import from any element</span>
+ME.instance.clear()
+
+<span class="cm">// core modules (all three versions export these)</span>
+ME.MdParser.parse('# markdown')     <span class="cm">// -> HTML</span>
+ME.MdSerializer.serialize(domNode)  <span class="cm">// -> Markdown</span></pre>
+    </div>
+
+    <h2 id="arch" style="margin-top:40px;">Architecture</h2>
+    <p class="section-sub">Three independent modules — the parsing and serialization layers are identical across all three framework versions.</p>
+    <div class="usage">
+      <pre class="code">Markdown source &lt;-&gt; MdParser &lt;-&gt; WYSIWYG DOM &lt;-&gt; MdSerializer &lt;-&gt; Markdown storage
+                                        |
+                                 Editor (toolbar, API)
+
+┌──────────────┬──────────────────────────────────────────────┐
+│ me-editor.js │ vanilla JS — ME.init(), works anywhere       │
+│ me-vue.js    │ Vue 3 — &lt;me-editor v-model="content" /&gt;      │
+│ me-react.js  │ React 18 — &lt;MeEditor value onChange /&gt;       │
+└──────────────┴──────────────────────────────────────────────┘</pre>
+    </div>
+
+    <h2 id="paste" style="margin-top:40px;">Paste-Image Upload</h2>
+    <p class="section-sub">Set <code>uploadUrl</code> and pasted images upload to your backend; the response <code>{ "url": "..." }</code> becomes the inserted image source. Without it, images fall back to base64.</p>
+    <div class="usage">
+      <pre class="code"><span class="cm"># minimal Python receiver (server.py ships in the repo)</span>
+# python server.py  ->  POST /upload  on port 1688
+# multipart/form-data field "file"  ->  { "url": "/uploads/xxx.png" }</pre>
+    </div>
+  </section>
+
+  <script>MESite.footer();</script>
+</body>
+</html>

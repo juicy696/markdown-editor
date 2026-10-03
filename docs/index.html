@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ME.js — WYSIWYG Markdown Editor for Web, Vue 3 and React 18</title>
+  <meta name="description" content="Zero-dependency, single-file WYSIWYG Markdown editor. Edit visually, store as Markdown. Works with vanilla JS, Vue 3 and React 18.">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <script src="assets/nav.js"></script>
+  <script>MESite.nav('web');</script>
+
+  <!-- ===== Hero banner (50vh) ===== -->
+  <header class="hero">
+    <h1><span class="brand">ME.js</span> WYSIWYG Markdown Editor</h1>
+    <p>
+      A zero-dependency, single-file rich text Markdown editor. Edit visually like a word
+      processor — everything is stored as Markdown underneath. Works with plain Web, Vue 3
+      and React 18 — no build step, no framework required.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#demo">Try it now</a>
+      <a class="btn btn-ghost" href="https://github.com/juicy696/markdown-editor" target="_blank" rel="noopener">Star on GitHub</a>
+    </div>
+  </header>
+
+  <!-- ===== Features ===== -->
+  <section class="section" id="features">
+    <h2>Features</h2>
+    <p class="section-sub">Everything you expect from a modern editor — in three small files.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3><span class="material-icons">visibility</span>WYSIWYG Editing</h3>
+        <p>Edit rendered rich text directly — headings look like headings, bold looks bold. The framework serializes everything to clean Markdown underneath.</p>
+      </div>
+      <div class="feature-card">
+        <h3><span class="material-icons">format_bold</span>Full Formatting</h3>
+        <p>Headings, bold, italic, strikethrough, inline code, text color, blockquote, lists (bulleted / numbered / task), code blocks, tables, links, images, audio and video.</p>
+      </div>
+      <div class="feature-card">
+        <h3><span class="material-icons">image</span>Paste Images</h3>
+        <p>Paste screenshots directly. Upload to your own backend endpoint or fall back to base64 — configurable with one option.</p>
+      </div>
+      <div class="feature-card">
+        <h3><span class="material-icons">table_chart</span>Tables &amp; Media</h3>
+        <p>Insert tables with custom rows/columns via a dialog. Click any image to resize (100% / 75% / 50% / 25%) with HTML round-trip.</p>
+      </div>
+      <div class="feature-card">
+        <h3><span class="material-icons">code</span>Markdown Export</h3>
+        <p>View the underlying Markdown source live. Copy to clipboard, or export as pure Markdown, HTML, or mixed Markdown+HTML.</p>
+      </div>
+      <div class="feature-card">
+        <h3><span class="material-icons">settings</span>Configurable</h3>
+        <p>Toggle any toolbar button (copy, view-code, audio, video), character limit with red overflow warning, custom upload endpoint — all via init options.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Live demo ===== -->
+  <section class="section" id="demo">
+    <h2>Live Demo</h2>
+    <p class="section-sub">
+      This is the real editor running on this page — the content below is this editor's own documentation.
+      Select text and use the toolbar, insert tables and images, then hit the code icon to see the Markdown underneath. Nothing is simulated.
+    </p>
+    <div class="demo-card">
+      <div id="app">
+# ME.js — WYSIWYG Markdown Editor
+
+A **rich text** Markdown editor written in *pure JavaScript*. Edit visually — the framework stores everything as **Markdown** underneath.
+
+## Try it
+
+- Select this line and click **B** in the toolbar to make it bold
+- Click the table icon to insert a table with custom rows and columns
+- Click the quote icon on a paragraph to turn it into a blockquote
+
+## Formatting showcase
+
+Inline: **bold**, *italic*, ~~strikethrough~~, `inline code`
+
+1. Ordered lists work
+2. So do bullet lists
+   - nested too
+
+- [x] Task lists with checkboxes
+- [ ] Try checking me
+
+> Blockquotes for emphasis and citations.
+
+## Code blocks
+
+```js
+// everything is stored as Markdown underneath
+const editor = ME.init({ mount: '#app' });
+```
+
+## You are the editor
+
+This page IS the running editor. The **View Code** button (top-right code icon) shows the underlying Markdown source — updated live as you type. Hit **Copy** to grab the Markdown.
+</div>
+    </div>
+  </section>
+
+  <!-- ===== Usage ===== -->
+  <section class="section" id="usage">
+    <h2>How to Use</h2>
+    <p class="section-sub">Three ways to integrate — all without a build step. Full parameter reference in the <a href="help.html">Docs</a>.</p>
+
+    <div class="usage">
+      <h3>Option 1: Vanilla JS <span class="badge">Web</span></h3>
+      <p>Put your Markdown inside a mount element, include one script, call <code>ME.init()</code>.</p>
+      <pre class="code">&lt;<span class="cm">!-- 1. mount element with Markdown/HTML content --&gt;</span>
+&lt;div id="app"&gt;
+# Hello
+
+This is **bold** text.
+&lt;/div&gt;
+
+&lt;<span class="cm">!-- 2. load the framework --&gt;</span>
+&lt;script src="me-editor.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  <span class="cm">// 3. initialize — the editor renders and takes over</span>
+  ME.init({
+    mount: '#app',
+    title: 'ME.js Editor',
+    iconsMode: 'remote',          <span class="cm">// or 'local'</span>
+    uploadUrl: 'http://localhost:1688/upload',  <span class="cm">// paste-image upload</span>
+    maxLength: 0                  <span class="cm">// character cap, 0 = unlimited</span>
+  });
+&lt;/script&gt;</pre>
+    </div>
+
+    <div class="usage">
+      <h3>Option 2: Vue 3 <span class="badge">Vue</span></h3>
+      <p>Include me-vue.js (self-contained), register the plugin, bind with v-model.</p>
+      <pre class="code">&lt;script src="https://unpkg.com/vue@3"&gt;&lt;/script&gt;
+&lt;script src="me-vue.js"&gt;&lt;/script&gt;
+
+&lt;div id="app"&gt;
+  &lt;me-editor v-model="content" theme="dark" /&gt;
+&lt;/div&gt;
+&lt;script&gt;
+  Vue.createApp({
+    data: () =&gt; ({ content: '# Hello\n\n- item' })
+  }).use(MEVue).mount('#app');
+&lt;/script&gt;</pre>
+    </div>
+
+    <div class="usage">
+      <h3>Option 3: React 18 <span class="badge">React</span></h3>
+      <p>Include me-react.js (self-contained), no JSX needed — plain createElement.</p>
+      <pre class="code">&lt;script src="https://unpkg.com/react@18/umd/react.production.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"&gt;&lt;/script&gt;
+&lt;script src="me-react.js"&gt;&lt;/script&gt;
+
+&lt;script&gt;
+  const e = React.createElement;
+  function App() {
+    const [md, setMd] = React.useState('# Hello');
+    return e(MEReact.MeEditor, { value: md, onChange: setMd });
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+&lt;/script&gt;</pre>
+    </div>
+  </section>
+
+  <!-- ===== Download ===== -->
+  <section class="section" id="download">
+    <h2>Download</h2>
+    <p class="section-sub">Single file per flavor — the Vue and React variants include the full engine.</p>
+    <div class="download-grid">
+      <div class="download-card">
+        <h3>me-editor.js</h3>
+        <p>Vanilla JS. ~57 KB, zero dependencies.</p>
+        <a class="btn btn-dark" href="assets/js/me-editor.js" download>Download</a>
+      </div>
+      <div class="download-card">
+        <h3>me-vue.js</h3>
+        <p>Vue 3 component. ~41 KB, needs Vue 3 only.</p>
+        <a class="btn btn-dark" href="assets/js/me-vue.js" download>Download</a>
+      </div>
+      <div class="download-card">
+        <h3>me-react.js</h3>
+        <p>React 18 component. ~39 KB, needs React 18 only.</p>
+        <a class="btn btn-dark" href="assets/js/me-react.js" download>Download</a>
+      </div>
+    </div>
+  </section>
+
+  <script>document.write('<script src="assets/js/me-editor.js?t=' + Date.now() + '"><\/script>');</script>
+  <script>
+    ME.init({
+      mount: '#app',
+      title: 'ME.js Editor',
+      iconsMode: 'remote',
+      importFromContent: true,
+      placeholder: 'Start writing your story...'
+    });
+  </script>
+
+  <script>MESite.footer();</script>
+</body>
+</html>
