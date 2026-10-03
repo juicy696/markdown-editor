@@ -1,4 +1,10 @@
-/* ME.js site styles (adapted from JsonStudio) */
+/* ME.js site styles */
+/* NOTE: nav & footer are hidden by default — the editor has its own chrome.
+   Re-enable by removing the display:none rules below if needed. */
+
+/* ---------- Hidden site chrome ---------- */
+.nav, .footer { display: none !important; }
+
 :root {
   --bg: #ffffff;
   --fg: #1f2328;
@@ -20,58 +26,6 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-
-/* ---------- Nav ---------- */
-.nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--border);
-}
-.nav-inner {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 20px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.nav-title {
-  font-weight: 700;
-  font-size: 18px;
-  color: var(--fg);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.nav-title:hover { text-decoration: none; }
-.nav-title .brand { display: inline; gap: 0; }
-.nav-title .brand-me { color: var(--accent); }
-.nav-title .brand-editor { color: var(--fg); }
-.nav-links { display: flex; align-items: center; gap: 4px; }
-.nav-links a {
-  padding: 6px 12px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 14px;
-}
-.nav-links a:hover { color: var(--fg); background: var(--card-bg); text-decoration: none; }
-.nav-links a.active { color: var(--accent); font-weight: 600; }
-.nav-links a.nav-github {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-  padding: 6px 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--fg);
-  font-weight: 500;
-}
-.nav-links a.nav-github:hover { background: var(--card-bg); }
 
 /* ---------- Hero banner ---------- */
 .hero {
@@ -200,50 +154,3 @@ pre.code .cm { color: #8b8bb0; }
 .btn-dark:hover { background: #32383f; text-decoration: none; }
 .btn-outline { background: transparent; color: var(--fg); border: 1px solid var(--border); }
 .btn-outline:hover { background: var(--bg); text-decoration: none; }
-
-/* ---------- Footer ---------- */
-.footer {
-  border-top: 1px solid var(--border);
-  background: var(--card-bg);
-  padding: 24px 20px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 13px;
-  position: relative;
-}
-.footer .footer-links { margin-top: 6px; display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-.footer > div:first-of-type,
-.footer .footer-links {
-  max-width: 1080px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-.footer-brand-wrap {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 100%;
-  max-width: 1080px;
-  padding: 0 20px;
-  pointer-events: none;
-  display: flex;
-  justify-content: flex-end;
-}
-.footer-brand {
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  text-decoration: none;
-}
-.footer-brand:hover { text-decoration: none; opacity: .85; }
-.footer-brand img { height: 100%; max-height: 30px; width: auto; display: block; }
-.footer-brand .footer-brand-text { font-size: 11px; color: var(--muted); white-space: nowrap; }
-.footer-brand .footer-brand-text em { font-style: normal; color: var(--fg); font-weight: 500; }
-@media (max-width: 720px) {
-  .footer-brand-wrap { position: static; transform: none; margin-top: 10px; justify-content: center; }
-}
