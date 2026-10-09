@@ -504,7 +504,10 @@
         } else {
           // 回到编辑模式：textarea 内容重新解析渲染
           if (this.codeText !== this.markdown) {
-            this.setMarkdown(this.codeText);
+            this.$refs.editor.innerHTML = MdParser.parse(this.codeText || '');
+            this.markdown = this.codeText;
+            this.$emit('update:modelValue', this.codeText);
+            this.$emit('change', this.codeText);
           }
           this.viewMode = 'wysiwyg';
         }
