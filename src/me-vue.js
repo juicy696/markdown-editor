@@ -458,6 +458,7 @@
       modelValue(nv) {
         if (nv !== this.markdown && this.$refs.editor) {
           this.$refs.editor.innerHTML = MdParser.parse(nv || '');
+          this._renderedMarkdown = nv;
           this._sync();
         }
       },
@@ -500,15 +501,17 @@
         if (mode === 'code') {
           this._sync();
           this.codeText = this.markdown;
+          this._renderedMarkdown = this.markdown; // DOM 当前渲染的内容基线
           this.viewMode = 'code';
         } else {
-          // 回到编辑模式：textarea 内容重新解析渲染
-          if (this.codeText !== this.markdown) {
+          // 回到编辑模式：textarea 内容与 DOM 渲染基线不同才重新渲染
+          if (this.codeText !== this._renderedMarkdown) {
             this.$refs.editor.innerHTML = MdParser.parse(this.codeText || '');
-            this.markdown = this.codeText;
-            this.$emit('update:modelValue', this.codeText);
-            this.$emit('change', this.codeText);
+            this._renderedMarkdown = this.codeText;
           }
+          this.markdown = this.codeText;
+          this.$emit('update:modelValue', this.codeText);
+          this.$emit('change', this.codeText);
           this.viewMode = 'wysiwyg';
         }
       },
