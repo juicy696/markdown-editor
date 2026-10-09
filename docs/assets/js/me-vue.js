@@ -786,9 +786,10 @@
         const text = ta.value.substring(0, st) + before + sel + after + ta.value.substring(en);
         this.codeText = text;
         this.$nextTick(() => {
-          ta.focus();
-          const selStart = st + before.length;
-          ta.setSelectionRange(selStart, selStart + sel.length);
+          this._focusCodeCaret(() => {
+            const selStart = st + before.length;
+            ta.setSelectionRange(selStart, selStart + sel.length);
+          });
         });
       },
       _codePrefixLines(prefixFn) {
@@ -806,8 +807,9 @@
         const text = val.substring(0, lineStart) + out + val.substring(lineEnd);
         this.codeText = text;
         this.$nextTick(() => {
-          ta.focus();
-          ta.setSelectionRange(lineStart, lineStart + out.length);
+          this._focusCodeCaret(() => {
+            ta.setSelectionRange(lineStart, lineStart + out.length);
+          });
         });
       },
       _codeInsert(text, cursorOffsetBack) {
@@ -817,10 +819,19 @@
         const newText = val.substring(0, st) + text + val.substring(en);
         this.codeText = newText;
         this.$nextTick(() => {
-          ta.focus();
-          const pos = st + text.length - (cursorOffsetBack || 0);
-          ta.setSelectionRange(pos, pos);
+          this._focusCodeCaret(() => {
+            const pos = st + text.length - (cursorOffsetBack || 0);
+            ta.setSelectionRange(pos, pos);
+          });
         });
+      },
+
+      _focusCodeCaret(restoreSel) {
+        const ta = this.$refs.codeEdit;
+        const y = window.scrollY;
+        ta.focus({ preventScroll: true });
+        if (restoreSel) restoreSel();
+        window.scrollTo(0, y);
       },
       _execCodeMode(act) {
         const ta = this.$refs.codeEdit;
