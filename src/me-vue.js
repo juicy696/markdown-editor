@@ -602,8 +602,10 @@
       /* ---- toolbar ---- */
       exec(act) {
         const ed = this.$refs.editor;
-        // 代码模式：工具栏操作直接编辑 Markdown 文本（textarea 为真源）
-        if (this.viewMode === 'code') { this._execCodeMode(act); return; }
+        // 代码模式：格式类按钮直接编辑 Markdown 文本（textarea 为真源）；
+        // 弹窗确认类（*-confirm）走正常分支（内部会按 viewMode 分流插入方式）
+        const isConfirm = act.endsWith('-confirm');
+        if (this.viewMode === 'code' && !isConfirm) { this._execCodeMode(act); return; }
         ed.focus();
         const restore = () => this._sync();
         switch (act) {
