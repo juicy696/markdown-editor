@@ -195,7 +195,12 @@
         }
         case 'pre': {
           const code = node.querySelector('code');
-          const text = (code || node).textContent.replace(/\n$/, '');
+          // contenteditable 中按 Enter 浏览器会插入 <br>；textContent 取值时 <br> 不产生文本，
+          // 导致换行丢失。先把 <br> 转为换行符再取文本。
+          const srcNode = code || node;
+          const tmp = srcNode.cloneNode(true);
+          tmp.querySelectorAll('br').forEach(br => br.replaceWith(document.createTextNode('\n')));
+          const text = tmp.textContent.replace(/\n$/, '');
           out.md += '\n```\n' + text + '\n```\n\n'; return;
         }
         case 'blockquote':
