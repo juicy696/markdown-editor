@@ -428,6 +428,7 @@
       overflowButtons() {
         return this.leftButtons.slice(this.leftButtons.length - this.overflowCount);
       },
+      svgPaths() { return SVG; },
       modalTitle() {
         if (!this.modal) return '';
         return {
@@ -587,7 +588,6 @@
       pickMsgType(t) {
         if (this.modal) this.modal.msgType = t;
       },
-      get svgPaths() { return SVG; },
       /* ---- toolbar ---- */
       exec(act) {
         const ed = this.$refs.editor;
@@ -708,6 +708,7 @@
             this.insertHtml('<pre class="me-pre" data-me-block="code"><code>// code here\n</code></pre><p><br></p>');
             return restore();
           case 'table':
+            this._saveSelection();
             this.modal = { kind: 'table', rows: 3, cols: 4 };
             return;
           case 'table-confirm': {
@@ -715,6 +716,7 @@
             const rows = Math.min(Math.max(parseInt(m.rows, 10) || 3, 1), 50);
             const cols = Math.min(Math.max(parseInt(m.cols, 10) || 4, 1), 20);
             this.modal = null;
+            this._restoreSelection();
             let t = '<table class="me-table"><thead><tr>';
             for (let c = 0; c < cols; c++) t += '<th>Header ' + (c + 1) + '</th>';
             t += '</tr></thead><tbody>';
@@ -952,13 +954,11 @@
         <button class="me-tool me-eraser" title="Clear formatting" :disabled="eraserDisabled" @click="exec('eraser')">
           <span class="material-icons">ink_eraser</span>
         </button>
-        <button class="me-tool" title="Undo" @click="exec('undo')"><span class="material-icons">undo</span></button>
-        <button class="me-tool" title="Redo" @click="exec('redo')"><span class="material-icons">redo</span></button>
         <button v-if="opts.showViewCode" class="me-tool" title="View Markdown" @click="toggleView">
           <span class="material-icons">{{ viewMode === 'code' ? 'visibility' : 'code' }}</span>
         </button>
-        <button v-if="opts.showCopy" class="me-tool" title="Copy Markdown" @click="copyMarkdown">
-          <span class="material-icons">content_copy</span>
+        <button class="me-tool" title="Info" @click="$refs.aboutModal.classList.remove('hidden')">
+          <span class="material-icons">info</span>
         </button>
       </div>
     </div>
@@ -1082,9 +1082,10 @@
   border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15);padding:6px;display:flex;flex-direction:column;gap:2px;z-index:50;min-width:180px;}
 .me-toolbar-more .me-tool{justify-content:flex-start;}
 .me-more-btn{flex-shrink:0;}
-.me-tool{background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:5px;color:#444;display:flex;align-items:center;min-width:30px;justify-content:center;font-weight:700;}
+.me-tool{background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:5px;color:#444;display:flex;align-items:center;justify-content:center;min-width:30px;height:30px;overflow:hidden;font-weight:700;}
 .me-tool:hover{background:#e0e2ea;}
 .me-tool .material-icons{font-size:17px;}
+.me-tool svg{width:17px;height:17px;display:block;}
 .me-tool-text{font-size:13px;}
 .me-tool.me-eraser{color:#b6b9c6;}
 .me-tool.me-eraser:disabled{cursor:not-allowed;}
