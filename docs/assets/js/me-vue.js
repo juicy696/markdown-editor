@@ -1225,6 +1225,9 @@
 .me-title{font-size:16px;font-weight:600;}
 .me-nav-btn{background:none;border:none;color:#cdd0e0;cursor:pointer;padding:6px;border-radius:6px;display:flex;}
 .me-nav-btn:hover{background:rgba(255,255,255,.12);color:#fff;}
+/* 弹窗内的关闭/操作按钮（白底）：悬停变黑底白字 */
+.me-modal .me-nav-btn{color:#8b8ea0;}
+.me-modal .me-nav-btn:hover{background:#1e1e2e;color:#fff;}
 .me-toolbar-wrap{padding:3px 12px;background:#f0f1f5;border-bottom:1px solid #dfe1e8;}
 .me-toolbar{display:flex;align-items:center;gap:8px;width:100%;}
 .me-toolbar-left{display:flex;align-items:center;width:70%;min-width:280px;position:relative;}
