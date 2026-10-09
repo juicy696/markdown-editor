@@ -596,6 +596,8 @@
       /* ---- toolbar ---- */
       exec(act) {
         const ed = this.$refs.editor;
+        // 代码模式：工具栏操作直接编辑 Markdown 文本（textarea 为真源）
+        if (this.viewMode === 'code') { this._execCodeMode(act); return; }
         ed.focus();
         const restore = () => this._sync();
         switch (act) {
@@ -655,6 +657,7 @@
             const text = (m.text || '').trim() || url;
             if (!url) { this.showToast('Link URL is required'); return; }
             this.modal = null;
+            if (this.viewMode === 'code') { this._codeInsert('[' + text + '](' + url + ')'); return; }
             this._restoreSelection();
             this.insertHtml('<a href="' + escHtml(url) + '" target="_blank" rel="noopener">' + escHtml(text) + '</a>');
             return restore();
@@ -668,8 +671,10 @@
             const text = (m.text || '').trim();
             if (!text) { this.showToast('Message text is required'); return; }
             this.modal = null;
+            const cardHtml = this._msgHtml(m.msgType, text);
+            if (this.viewMode === 'code') { this._codeInsert('\n' + cardHtml + '\n'); return; }
             this._restoreSelection();
-            this.insertHtml(this._msgHtml(m.msgType, text) + '<p><br></p>');
+            this.insertHtml(cardHtml + '<p><br></p>');
             return restore();
           }
           case 'image':
@@ -680,6 +685,7 @@
             const m = this.modal;
             if (!m.url.trim()) { this.showToast('Image URL is required'); return; }
             this.modal = null;
+            if (this.viewMode === 'code') { this._codeInsert('![' + (m.title.trim() || 'image') + '](' + m.url.trim() + ')'); return; }
             this._restoreSelection();
             this.insertHtml('<img src="' + escHtml(m.url.trim()) + '" alt="' + escHtml(m.title.trim() || 'image') + '"' +
               (m.title.trim() ? ' title="' + escHtml(m.title.trim()) + '"' : '') + '><p><br></p>');
@@ -693,6 +699,7 @@
             const m = this.modal;
             if (!m.url.trim()) { this.showToast('Audio URL is required'); return; }
             this.modal = null;
+            if (this.viewMode === 'code') { this._codeInsert('<audio src="' + m.url.trim() + '" controls></audio>'); return; }
             this._restoreSelection();
             this.insertHtml('<audio src="' + escHtml(m.url.trim()) + '" controls></audio><p><br></p>');
             return restore();
@@ -705,11 +712,13 @@
             const m = this.modal;
             if (!m.url.trim()) { this.showToast('Video URL is required'); return; }
             this.modal = null;
+            if (this.viewMode === 'code') { this._codeInsert('<video src="' + m.url.trim() + '" controls style="max-width:100%;border-radius:8px"></video>'); return; }
             this._restoreSelection();
             this.insertHtml('<video src="' + escHtml(m.url.trim()) + '" controls style="max-width:100%;border-radius:8px"></video><p><br></p>');
             return restore();
           }
           case 'codeBlock':
+            if (this.viewMode === 'code') { this._codeInsert('\n```\ncode here\n```\n', 5); return; }
             this.insertHtml('<pre class="me-pre" data-me-block="code"><code>// code here\n</code></pre><p><br></p>');
             return restore();
           case 'table':
@@ -721,6 +730,18 @@
             const rows = Math.min(Math.max(parseInt(m.rows, 10) || 3, 1), 50);
             const cols = Math.min(Math.max(parseInt(m.cols, 10) || 4, 1), 20);
             this.modal = null;
+            if (this.viewMode === 'code') {
+              let md = '\n| ';
+              for (let c = 0; c < cols; c++) md += 'Header ' + (c + 1) + (c < cols - 1 ? ' | ' : ' |\n');
+              md += '| ';
+              for (let c = 0; c < cols; c++) md += '---' + (c < cols - 1 ? ' | ' : ' |\n');
+              for (let r = 0; r < rows - 1; r++) {
+                md += '| ';
+                for (let c = 0; c < cols; c++) md += ' ' + (c < cols - 1 ? ' | ' : ' |\n');
+              }
+              this._codeInsert(md);
+              return;
+            }
             this._restoreSelection();
             let t = '<table class="me-table"><thead><tr>';
             for (let c = 0; c < cols; c++) t += '<th>Header ' + (c + 1) + '</th>';
@@ -735,6 +756,7 @@
             return restore();
           }
           case 'hr':
+            if (this.viewMode === 'code') { this._codeInsert('\n---\n'); return; }
             this.insertHtml('<hr><p><br></p>');
             return restore();
         }
@@ -755,6 +777,93 @@
       },
       insertHtml(html) {
         document.execCommand('insertHTML', false, html);
+      },
+      /* ---- code mode toolbar: operate on the textarea text directly ---- */
+      _codeWrap(before, after, placeholder) {
+        const ta = this.$refs.codeEdit;
+        const st = ta.selectionStart, en = ta.selectionEnd;
+        const sel = ta.value.substring(st, en) || placeholder;
+        const text = ta.value.substring(0, st) + before + sel + after + ta.value.substring(en);
+        this.codeText = text;
+        this.$nextTick(() => {
+          ta.focus();
+          const selStart = st + before.length;
+          ta.setSelectionRange(selStart, selStart + sel.length);
+        });
+      },
+      _codePrefixLines(prefixFn) {
+        const ta = this.$refs.codeEdit;
+        const st = ta.selectionStart, en = ta.selectionEnd;
+        const val = ta.value;
+        // expand to full lines
+        const lineStart = val.lastIndexOf('\n', st - 1) + 1;
+        let lineEnd = val.indexOf('\n', en);
+        if (lineEnd === -1) lineEnd = val.length;
+        const block = val.substring(lineStart, lineEnd);
+        const lines = block.split('\n');
+        let counter = 0;
+        const out = lines.map(l => prefixFn(l, () => ++counter)).join('\n');
+        const text = val.substring(0, lineStart) + out + val.substring(lineEnd);
+        this.codeText = text;
+        this.$nextTick(() => {
+          ta.focus();
+          ta.setSelectionRange(lineStart, lineStart + out.length);
+        });
+      },
+      _codeInsert(text, cursorOffsetBack) {
+        const ta = this.$refs.codeEdit;
+        const st = ta.selectionStart, en = ta.selectionEnd;
+        const val = ta.value;
+        const newText = val.substring(0, st) + text + val.substring(en);
+        this.codeText = newText;
+        this.$nextTick(() => {
+          ta.focus();
+          const pos = st + text.length - (cursorOffsetBack || 0);
+          ta.setSelectionRange(pos, pos);
+        });
+      },
+      _execCodeMode(act) {
+        const ta = this.$refs.codeEdit;
+        const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+        const selLines = ta.value.substring(ta.selectionStart, ta.selectionEnd).split('\n');
+        switch (act) {
+          // 行内格式：包裹选中文本
+          case 'bold': return this._codeWrap('**', '**', 'bold text');
+          case 'italic': return this._codeWrap('*', '*', 'italic text');
+          case 'strike': return this._codeWrap('~~', '~~', 'strikethrough');
+          case 'codeInline': return this._codeWrap('`', '`', 'code');
+          case 'h1': return this._codePrefixLines(l => l.startsWith('# ') ? l : '# ' + l);
+          case 'h2': return this._codePrefixLines(l => l.startsWith('## ') ? l : '## ' + l);
+          case 'h3': return this._codePrefixLines(l => l.startsWith('### ') ? l : '### ' + l);
+          case 'para': return this._codePrefixLines(l => l.replace(/^#{1,6}\s+/, ''));
+          case 'quote': return this._codePrefixLines(l => l.startsWith('> ') ? l : '> ' + l);
+          case 'ul': return this._codePrefixLines(l => l.startsWith('- ') ? l : '- ' + l);
+          case 'ol': return this._codePrefixLines((l, next) => l.match(/^\d+\.\s/) ? l : (next() || 1) + '. ' + l);
+          case 'task': return this._codePrefixLines(l => l.startsWith('- [ ] ') || l.startsWith('- [x] ') ? l : '- [ ] ' + l);
+          case 'codeBlock':
+            return this._codeInsert('\n```\n' + (sel || 'code here') + '\n```\n', sel ? 5 : 14);
+          case 'hr':
+            return this._codeInsert('\n---\n');
+          // 弹窗类：弹窗确认后由 confirm 分支判断模式，插入文本而非 DOM
+          case 'link':
+            this.modal = { kind: 'link', url: '', text: '' };
+            return;
+          case 'image':
+            this.modal = { kind: 'image', title: '', url: '' };
+            return;
+          case 'audio':
+            this.modal = { kind: 'audio', url: '' };
+            return;
+          case 'video':
+            this.modal = { kind: 'video', url: '' };
+            return;
+          case 'table':
+            this.modal = { kind: 'table', rows: 3, cols: 4 };
+            return;
+          case 'message':
+            this.modal = { kind: 'message', text: '', msgType: 'msg' };
+            return;
+        }
       },
       /* ---- view code / copy ---- */
       openCodeView() {
