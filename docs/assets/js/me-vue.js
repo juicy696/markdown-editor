@@ -1106,9 +1106,6 @@
         </div>
       </div>
       <div class="me-toolbar-right">
-        <button class="me-tool me-eraser" title="Clear formatting" :disabled="eraserDisabled" @click="exec('eraser')">
-          <span class="material-icons">ink_eraser</span>
-        </button>
         <button v-if="opts.showViewCode" class="me-tool" title="View Markdown" @click="toggleView">
           <span class="material-icons">{{ viewMode === 'code' ? 'visibility' : 'code' }}</span>
         </button>
