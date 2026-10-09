@@ -635,11 +635,17 @@
               this._colorInput.style.cssText = 'position:fixed;opacity:0;pointer-events:none;left:50vw;top:50vh;';
               document.body.appendChild(this._colorInput);
               this._colorInput.addEventListener('input', () => {
+                this._lastColor = this._colorInput.value; // 记住本次选择，下次打开时默认值
                 document.execCommand('foreColor', false, this._colorInput.value);
                 restore();
               });
             }
-            this._colorInput.value = '#7c3aed';
+            // 默认红色；使用过后默认上一次选择的颜色
+            this._colorInput.value = this._lastColor || '#e05260';
+            // 屏幕居中弹出（与代码/预览模式无关，两种模式都可用）
+            const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+            this._colorInput.style.left = cx + 'px';
+            this._colorInput.style.top = cy + 'px';
             this._colorInput.click();
             return;
           }
@@ -882,6 +888,22 @@
           case 'message':
             this.modal = { kind: 'message', text: '', msgType: 'msg' };
             return;
+          case 'color': {
+            // 代码模式：用带颜色的 span 包裹选中文本（Markdown 无颜色语法，输出 HTML）
+            const color = this._lastColor || '#e05260';
+            const ta = this.$refs.codeEdit;
+            const st = ta.selectionStart, en = ta.selectionEnd;
+            const sel = ta.value.substring(st, en);
+            if (!sel) { this.showToast('Select text first'); return; }
+            const wrapped = '<span style="color:' + color + '">' + sel + '</span>';
+            this.codeText = ta.value.substring(0, st) + wrapped + ta.value.substring(en);
+            this.$nextTick(() => {
+              this._focusCodeCaret(() => {
+                ta.setSelectionRange(st, st + wrapped.length);
+              });
+            });
+            return;
+          }
         }
       },
       /* ---- view code / copy ---- */
