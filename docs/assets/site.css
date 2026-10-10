@@ -49,7 +49,7 @@ a:hover { text-decoration: underline; }
 }
 .nav-title:hover { text-decoration: none; }
 .nav-title .brand { display: inline; gap: 0; }
-.nav-title .brand-me { color: var(--accent); }
+.nav-title .brand-me { color: #e02020; font-style: italic; font-weight: 700; }
 .nav-title .brand-editor { color: var(--fg); }
 .nav-links { display: flex; align-items: center; gap: 4px; }
 .nav-links a {

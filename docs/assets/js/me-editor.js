@@ -489,6 +489,16 @@
         '</div>' +
 
         /* Color / image / audio / video / about modals */
+        '<div class="me-modal hidden" data-modal="color">' +
+          '<div class="me-modal-box me-modal-form me-color-modal">' +
+            '<div class="me-modal-head"><span>文字颜色</span>' +
+              '<button class="me-nav-btn" data-close>' + icon(I.close, 'Close') + '</button></div>' +
+            '<div class="me-form-body">' +
+              '<div class="me-color-grid" id="me-color-grid"></div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+
         '<div class="me-modal hidden" data-modal="image">' +
           '<div class="me-modal-box me-modal-form">' +
             '<div class="me-modal-head"><span>Insert Image</span>' +
@@ -511,8 +521,8 @@
             '<div class="me-modal-head"><span>Insert Link</span>' +
               '<button class="me-nav-btn" data-close>' + icon(I.close, 'Close') + '</button></div>' +
             '<div class="me-form-body">' +
-              '<label class="me-field"><span>标题 / 显示文本</span>' +
-                '<input type="text" id="me-link-text" placeholder="链接标题（留空则显示 URL）"></label>' +
+              '<label class="me-field"><span>Title / Display text</span>' +
+                '<input type="text" id="me-link-text" placeholder="Link title (leave empty to show URL)"></label>' +
               '<label class="me-field"><span>链接 URL <em class="me-dim2">(required)</em></span>' +
                 '<input type="text" id="me-link-url" placeholder="https://example.com"></label>' +
               '<div class="me-form-actions">' +
@@ -745,6 +755,8 @@
         if (act === 'viewmd') { self._toggleCodeMode(); return; }
         if (act === 'copy') { self._copyMarkdown(); return; }
         if (act === 'info') { self._showInfo(); return; }
+        // 代码模式：工具栏按钮直接编辑 Markdown 文本，不聚焦隐藏的 WYSIWYG 编辑器
+        if (self._viewMode === 'code') { self._exec(act); return; }
         self.$editor.focus();
         self._exec(act);
       });
@@ -922,6 +934,8 @@
     }
 
     _exec(act) {
+      // 代码模式：所有工具栏/弹窗操作改为直接编辑 Markdown 源码文本
+      if (this._viewMode === 'code') return this._execCodeMode(act);
       const ed = this.$editor;
       // 打开插入类弹窗前先保存当前光标位置（弹窗会导致编辑器失焦）
       if (act === 'image' || act === 'audio' || act === 'video' || act === 'table' || act === 'link' || act === 'message') {
@@ -966,26 +980,9 @@
         }
 
         case 'color': {
-          // Native color picker, anchored near the toolbar (centered on screen)
-          if (!this._colorInput) {
-            this._colorInput = document.createElement('input');
-            this._colorInput.type = 'color';
-            this._colorInput.style.position = 'fixed';
-            this._colorInput.style.opacity = '0';
-            this._colorInput.style.pointerEvents = 'none';
-            document.body.appendChild(this._colorInput);
-            this._colorInput.addEventListener('input', () => {
-              document.execCommand('foreColor', false, this._colorInput.value);
-              this._pushUndo(); this._sync();
-            });
-          }
-          this._colorInput.value = '#7c3aed';
-          // center the (visually hidden) picker trigger on screen so the
-          // popup opens mid-window instead of top-left
-          const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-          this._colorInput.style.left = cx + 'px';
-          this._colorInput.style.top = cy + 'px';
-          this._colorInput.click();
+          // 打开颜色选择弹窗：最近颜色方块 + 自定义颜色选择器
+          this._saveSelection();
+          this._openColorModal();
           return;
         }
 
@@ -1118,6 +1115,219 @@
 
     _insertHtml(html) {
       document.execCommand('insertHTML', false, html);
+    }
+
+    /* ---------- 代码模式：工具栏/弹窗直接编辑 Markdown 文本（textarea 为真源） ---------- */
+    _codeEdit() {
+      return this.app.querySelector('.me-code-edit');
+    }
+    _codeWrap(before, after, placeholder) {
+      const ta = this._codeEdit();
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      const sel = ta.value.substring(st, en) || placeholder;
+      ta.setRangeText(before + sel + after, st, en);
+      ta.focus();
+      ta.setSelectionRange(st + before.length, st + before.length + sel.length);
+      this._sync();
+    }
+    _codePrefixLines(prefixFn) {
+      const ta = this._codeEdit();
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      const val = ta.value;
+      const lineStart = val.lastIndexOf('\n', st - 1) + 1;
+      let lineEnd = val.indexOf('\n', en);
+      if (lineEnd === -1) lineEnd = val.length;
+      const out = val.substring(lineStart, lineEnd).split('\n')
+        .map((l, i) => prefixFn(l, () => i + 1)).join('\n');
+      ta.setRangeText(out, lineStart, lineEnd);
+      ta.focus();
+      ta.setSelectionRange(lineStart, lineStart + out.length);
+      this._sync();
+    }
+    _codeInsert(text) {
+      const ta = this._codeEdit();
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      ta.setRangeText(text, st, en);
+      ta.focus();
+      const pos = st + text.length;
+      ta.setSelectionRange(pos, pos);
+      this._sync();
+    }
+    /* ---------- 颜色选择：最近颜色（localStorage，最多 20 个）+ 自定义选色 ---------- */
+    _colorHistory() {
+      try { return JSON.parse(localStorage.getItem('me_color_history') || '[]'); }
+      catch (e) { return []; }
+    }
+    _pushColorHistory(c) {
+      if (!/^#[0-9a-fA-F]{6}$/.test(c)) return;
+      let list = this._colorHistory().filter(x => x.toLowerCase() !== c.toLowerCase());
+      list.unshift(c.toLowerCase());
+      list = list.slice(0, 20);
+      try { localStorage.setItem('me_color_history', JSON.stringify(list)); } catch (e) {}
+    }
+    _applyColor(c) {
+      this._pushColorHistory(c);
+      this._closeModal('color');
+      this._updateColorIcon(c);
+      // 代码模式：用带颜色的 span 包裹 textarea 中选中的文本
+      if (this._viewMode === 'code') { this._codeWrap('<span style="color:' + c + '">', '</span>', '文字'); return; }
+      this._restoreSelection();
+      document.execCommand('foreColor', false, c);
+      this._pushUndo(); this._sync();
+    }
+    _updateColorIcon(c) {
+      // 工具栏调色板图标底部色条显示最近一次使用的颜色
+      const ico = this.app.querySelector('.me-color-ico');
+      if (ico) ico.style.setProperty('--me-last-color', c);
+    }
+    _openColorModal() {
+      this._openModal('color');
+      // 图标色条同步显示最近一次颜色
+      const hist = this._colorHistory();
+      if (hist.length) this._updateColorIcon(hist[0]);
+      const grid = this._q('#me-color-grid');
+      if (!grid) return;
+      // 渲染最近颜色方块；无历史时只显示选色入口，不渲染提示文本
+      grid.innerHTML = '';
+      const list = this._colorHistory();
+      list.forEach(c => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'me-color-swatch';
+        b.style.background = c;
+        b.title = c;
+        b.addEventListener('click', () => this._applyColor(c));
+        grid.appendChild(b);
+      });
+      // 选色器方块（最后一位）：input 铺满方块，直接点击触发系统选色器；无历史时它是唯一方块
+      let picker = this._q('#me-color-input');
+      if (!picker) {
+        picker = document.createElement('input');
+        picker.type = 'color';
+        picker.id = 'me-color-input';
+      } else if (picker.parentNode) {
+        picker.parentNode.removeChild(picker);
+      }
+      picker.value = this._lastColor || '#7c3aed';
+      picker.onchange = () => { this._applyColor(picker.value); };
+      const pickTile = document.createElement('button');
+      pickTile.type = 'button';
+      pickTile.className = 'me-color-swatch me-color-pick-tile';
+      pickTile.title = '选择自定义颜色…';
+      pickTile.appendChild(picker);
+      grid.appendChild(pickTile);
+    }
+
+    _execCodeMode(act) {
+      const ta = this._codeEdit();
+      if (!ta) return;
+      const q = (sel) => { const el = this._q(sel); return el ? (el.value || '').trim() : ''; };
+      switch (act) {
+        // 行内格式：包裹 textarea 中选中的文本
+        case 'bold': return this._codeWrap('**', '**', '加粗文字');
+        case 'italic': return this._codeWrap('*', '*', '斜体文字');
+        case 'strike': return this._codeWrap('~~', '~~', '删除线');
+        case 'codeInline': return this._codeWrap('`', '`', 'code');
+        // 块级格式：按行加前缀
+        case 'h1': return this._codePrefixLines(l => l.startsWith('# ') ? l : '# ' + l);
+        case 'h2': return this._codePrefixLines(l => l.startsWith('## ') ? l : '## ' + l);
+        case 'h3': return this._codePrefixLines(l => l.startsWith('### ') ? l : '### ' + l);
+        case 'para': return this._codePrefixLines(l => l.replace(/^#{1,6}\s+/, ''));
+        case 'quote': return this._codePrefixLines(l => l.startsWith('> ') ? l : '> ' + l);
+        case 'ul': return this._codePrefixLines(l => l.startsWith('- ') ? l : '- ' + l);
+        case 'ol': return this._codePrefixLines((l, next) => /^\d+\.\s/.test(l) ? l : (next() || 1) + '. ' + l);
+        case 'task': return this._codePrefixLines(l => /^- \[[ x]\] /.test(l) ? l : '- [ ] ' + l);
+        case 'codeBlock': return this._codeInsert('\n```\ncode here\n```\n');
+        case 'hr': return this._codeInsert('\n---\n');
+        // 代码模式下跳过基于 WYSIWYG DOM 的撤销/恢复/橡皮擦
+        case 'undo': case 'redo': case 'eraser': case 'save': return;
+        case 'color':
+          // 与编辑模式一致：打开颜色选择弹窗（最近颜色 + 自定义选色）
+          this._openColorModal();
+          return;
+        // 弹窗类：确认后往 textarea 插入 Markdown/HTML 文本
+        case 'link':
+          this._openModal('link');
+          setTimeout(() => { const inp = this._q('#me-link-text'); if (inp) inp.focus(); }, 50);
+          return;
+        case 'link-confirm': {
+          const url = q('#me-link-url');
+          const text = q('#me-link-text') || url;
+          if (!url) { this._toast('Link URL is required'); return; }
+          this._closeModal('link');
+          this._codeInsert('[' + text + '](' + url + ')');
+          return;
+        }
+        case 'image':
+          this._openModal('image');
+          setTimeout(() => { const inp = this._q('#me-img-url'); if (inp) inp.focus(); }, 50);
+          return;
+        case 'image-confirm': {
+          const url = q('#me-img-url');
+          const title = q('#me-img-title');
+          if (!url) { this._toast('Image URL is required'); return; }
+          this._closeModal('image');
+          this._codeInsert('![' + (title || 'image') + '](' + url + ')');
+          return;
+        }
+        case 'audio':
+          this._openModal('audio');
+          setTimeout(() => { const inp = this._q('#me-audio-url'); if (inp) inp.focus(); }, 50);
+          return;
+        case 'audio-confirm': {
+          const url = q('#me-audio-url');
+          if (!url) { this._toast('Audio URL is required'); return; }
+          this._closeModal('audio');
+          this._codeInsert('<audio src="' + url + '" controls></audio>');
+          return;
+        }
+        case 'video':
+          this._openModal('video');
+          setTimeout(() => { const inp = this._q('#me-video-url'); if (inp) inp.focus(); }, 50);
+          return;
+        case 'video-confirm': {
+          const url = q('#me-video-url');
+          if (!url) { this._toast('Video URL is required'); return; }
+          this._closeModal('video');
+          this._codeInsert('<video src="' + url + '" controls style="max-width:100%;border-radius:8px"></video>');
+          return;
+        }
+        case 'message':
+          this._openModal('message');
+          setTimeout(() => { const t = this._q('#me-msg-text'); if (t) t.focus(); }, 50);
+          return;
+        case 'message-confirm': {
+          const mtext = q('#me-msg-text');
+          if (!mtext) { this._toast('Message text is required'); return; }
+          const txtInput = this._q('#me-msg-text');
+          if (txtInput) txtInput.value = '';
+          this._closeModal('message');
+          this._codeInsert('\n' + this._msgHtml(this._msgType || 'msg', mtext) + '\n');
+          return;
+        }
+        case 'table':
+          this._openModal('table');
+          setTimeout(() => { const inp = this._q('#me-table-cols'); if (inp) { inp.focus(); inp.select(); } }, 50);
+          return;
+        case 'table-confirm': {
+          let cols = Math.min(Math.max(parseInt(this._q('#me-table-cols').value, 10) || 4, 1), 20);
+          let rows = Math.min(Math.max(parseInt(this._q('#me-table-rows').value, 10) || 3, 1), 50);
+          this._closeModal('table');
+          let md = '\n| ';
+          for (let c = 0; c < cols; c++) md += 'Header ' + (c + 1) + (c < cols - 1 ? ' | ' : ' |\n');
+          md += '| ';
+          for (let c = 0; c < cols; c++) md += '---' + (c < cols - 1 ? ' | ' : ' |\n');
+          for (let r = 0; r < rows - 1; r++) {
+            md += '| ';
+            for (let c = 0; c < cols; c++) md += ' ' + (c < cols - 1 ? ' | ' : ' |\n');
+          }
+          this._codeInsert(md);
+          return;
+        }
+      }
     }
 
     /* ---------- Paste: image handling (base64 or upload) ---------- */
@@ -1397,11 +1607,17 @@
       if (!codeEdit) return;
       const btn = this.app.querySelector('[data-act="toggleview"]');
       const setBtn = (iconName, title) => {
-        if (!btn) return;
-        // 图标可能是 material-icons 或 material-icons-outlined，两种都要匹配
-        const iconEl = btn.querySelector('.material-icons, .material-icons-outlined');
-        if (iconEl) iconEl.textContent = iconName;
-        btn.title = title;
+        // 右上角导航按钮 + 工具栏右侧 viewmd 按钮，两个都要同步图标
+        const btns = [btn];
+        const toolBtn = this.app.querySelector('[data-act="viewmd"]');
+        if (toolBtn && toolBtn !== btn) btns.push(toolBtn);
+        btns.forEach(b => {
+          if (!b) return;
+          // 图标可能是 material-icons 或 material-icons-outlined，两种都要匹配
+          const iconEl = b.querySelector('.material-icons, .material-icons-outlined');
+          if (iconEl) iconEl.textContent = iconName;
+          b.title = title;
+        });
       };
 
       if (mode === 'code') {
@@ -1754,6 +1970,12 @@
 .me-field input:focus{border-color:#7c6cff;box-shadow:0 0 0 3px rgba(124,108,255,.15);}
 .me-dim2{color:#9a9db0;font-style:normal;font-weight:400;}
 .me-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}
+.me-color-grid{display:flex;flex-wrap:wrap;gap:8px;min-height:40px;}
+.me-color-swatch{width:36px;height:36px;border-radius:8px;border:2px solid rgba(0,0,0,.08);cursor:pointer;padding:0;transition:transform .12s;}
+.me-color-swatch:hover{transform:scale(1.12);border-color:rgba(0,0,0,.25);}
+.me-color-pick-tile{position:relative;background:#8a8fa3;overflow:hidden;}
+.me-color-pick-tile::after{content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;}
+.me-color-pick-tile input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;cursor:pointer;z-index:1;}
 .me-btn{border:1px solid #dfe1e8;background:#fff;border-radius:8px;padding:8px 18px;font-size:13.5px;cursor:pointer;color:#444;}
 .me-btn:hover{background:#f0f1f5;}
 .me-btn-primary{background:#7c6cff;border-color:#7c6cff;color:#fff;}

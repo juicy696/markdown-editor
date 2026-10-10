@@ -346,6 +346,7 @@
         moreOpen: false,
         overflowCount: 0,
         modal: null,
+        colorHistory: [],
         viewMode: 'wysiwyg',
         codeText: ''
       };
@@ -452,6 +453,9 @@
           audio: 'https://example.com/sound.mp3',
           video: 'https://example.com/clip.mp4'
         }[this.modal.kind] || '';
+      },
+      isColorModal() {
+        return !!this.modal && this.modal.kind === 'color';
       }
     },
     watch: {
@@ -629,24 +633,10 @@
             return restore();
           }
           case 'color': {
-            if (!this._colorInput) {
-              this._colorInput = document.createElement('input');
-              this._colorInput.type = 'color';
-              this._colorInput.style.cssText = 'position:fixed;opacity:0;pointer-events:none;left:50vw;top:50vh;';
-              document.body.appendChild(this._colorInput);
-              this._colorInput.addEventListener('input', () => {
-                this._lastColor = this._colorInput.value; // 记住本次选择，下次打开时默认值
-                document.execCommand('foreColor', false, this._colorInput.value);
-                restore();
-              });
-            }
-            // 默认红色；使用过后默认上一次选择的颜色
-            this._colorInput.value = this._lastColor || '#e05260';
-            // 屏幕居中弹出（与代码/预览模式无关，两种模式都可用）
-            const cx = window.innerWidth / 2, cy = window.innerHeight / 2;
-            this._colorInput.style.left = cx + 'px';
-            this._colorInput.style.top = cy + 'px';
-            this._colorInput.click();
+            // 打开颜色选择弹窗：最近颜色方块 + 自定义颜色选择器
+            this._saveSelection();
+            this._loadColorHistory();
+            this.modal = { kind: 'color' };
             return;
           }
           case 'eraser': {
@@ -775,6 +765,36 @@
             return restore();
         }
       },
+      /* ---- 颜色选择：最近颜色（localStorage，最多 20 个）+ 自定义选色 ---- */
+      _loadColorHistory() {
+        try { this.colorHistory = JSON.parse(localStorage.getItem('me_color_history') || '[]'); }
+        catch (e) { this.colorHistory = []; }
+      },
+      applyColor(c) {
+        if (/^#[0-9a-fA-F]{6}$/.test(c)) {
+          const list = this.colorHistory.filter(x => x.toLowerCase() !== c.toLowerCase());
+          list.unshift(c.toLowerCase());
+          this.colorHistory = list.slice(0, 20);
+          try { localStorage.setItem('me_color_history', JSON.stringify(this.colorHistory)); } catch (e) {}
+          this._lastColor = c;
+        }
+        this.modal = null;
+        if (this.viewMode === 'code') {
+          const ta = this.$refs.codeEdit;
+          const st = ta.selectionStart, en = ta.selectionEnd;
+          const sel = ta.value.substring(st, en);
+          if (!sel) { this.showToast('Select text first'); return; }
+          const wrapped = '<span style="color:' + c + '">' + sel + '</span>';
+          this.codeText = ta.value.substring(0, st) + wrapped + ta.value.substring(en);
+          this.$nextTick(() => {
+            this._focusCodeCaret(() => { ta.setSelectionRange(st, st + wrapped.length); });
+          });
+          return;
+        }
+        this._restoreSelection();
+        document.execCommand('foreColor', false, c);
+        this._sync();
+      },
       _saveSelection() {
         const sel = window.getSelection();
         if (sel && sel.rangeCount && this.$refs.editor && this.$refs.editor.contains(sel.anchorNode)) {
@@ -888,22 +908,11 @@
           case 'message':
             this.modal = { kind: 'message', text: '', msgType: 'msg' };
             return;
-          case 'color': {
-            // 代码模式：用带颜色的 span 包裹选中文本（Markdown 无颜色语法，输出 HTML）
-            const color = this._lastColor || '#e05260';
-            const ta = this.$refs.codeEdit;
-            const st = ta.selectionStart, en = ta.selectionEnd;
-            const sel = ta.value.substring(st, en);
-            if (!sel) { this.showToast('Select text first'); return; }
-            const wrapped = '<span style="color:' + color + '">' + sel + '</span>';
-            this.codeText = ta.value.substring(0, st) + wrapped + ta.value.substring(en);
-            this.$nextTick(() => {
-              this._focusCodeCaret(() => {
-                ta.setSelectionRange(st, st + wrapped.length);
-              });
-            });
+          case 'color':
+            // 与编辑模式一致：打开颜色选择弹窗（最近颜色 + 自定义选色）
+            this._loadColorHistory();
+            this.modal = { kind: 'color' };
             return;
-          }
         }
       },
       /* ---- view code / copy ---- */
@@ -1160,7 +1169,25 @@
   </div>
 
   <!-- image / audio / video / table / link / message form modal -->
-  <div v-if="modal" class="me-modal" @click.self="modal = null">
+  <div v-if="isColorModal" class="me-modal" @click.self="modal = null">
+    <div class="me-modal-box me-modal-form">
+      <div class="me-modal-head"><span>文字颜色</span>
+        <button class="me-nav-btn" @click="modal = null">
+          <span class="material-icons">close</span></button>
+      </div>
+      <div class="me-form-body">
+        <div class="me-color-grid">
+          <button v-for="(c, i) in colorHistory" :key="c + i" type="button" class="me-color-swatch"
+            :style="{ background: c }" :title="c" @click="applyColor(c)"></button>
+          <button type="button" class="me-color-swatch me-color-pick-tile" title="选择自定义颜色…">
+            <input type="color" :value="colorHistory[0] || '#7c3aed'" @change="applyColor($event.target.value)">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="modal && !isColorModal" class="me-modal" @click.self="modal = null">
     <div class="me-modal-box me-modal-form">
       <div class="me-modal-head"><span>{{ modalTitle }}</span>
         <button class="me-nav-btn" @click="modal = null">
@@ -1174,8 +1201,8 @@
             <input type="number" v-model="modal.rows" min="1" max="50"></label>
         </template>
         <template v-else-if="modal.kind === 'link'">
-          <label class="me-field"><span>标题 / 显示文本</span>
-            <input type="text" v-model="modal.text" placeholder="链接标题（留空则显示 URL）" ref="modalFirstInput"></label>
+          <label class="me-field"><span>Title / Display text</span>
+            <input type="text" v-model="modal.text" placeholder="Link title (leave empty to show URL)" ref="modalFirstInput"></label>
           <label class="me-field"><span>链接 URL <em class="me-dim2">(required)</em></span>
             <input type="text" v-model="modal.url" placeholder="https://example.com"></label>
         </template>
@@ -1287,6 +1314,12 @@
 .me-about-logo{font-size:56px;color:#7c6cff;}
 .me-ver{color:#8b8ea0;font-size:13px;}
 .me-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1e1e2e;color:#fff;padding:10px 22px;border-radius:8px;font-size:13.5px;z-index:200;}
+.me-color-grid{display:flex;flex-wrap:wrap;gap:8px;min-height:40px;}
+.me-color-swatch{width:36px;height:36px;border-radius:8px;border:2px solid rgba(255,255,255,.15);cursor:pointer;padding:0;transition:transform .12s;}
+.me-color-swatch:hover{transform:scale(1.12);border-color:rgba(255,255,255,.4);}
+.me-color-pick-tile{position:relative;background:#8a8fa3;overflow:hidden;}
+.me-color-pick-tile::after{content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;pointer-events:none;}
+.me-color-pick-tile input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;cursor:pointer;z-index:1;}
 .me-img-bar{position:absolute;z-index:150;background:#1e1e2e;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:6px;box-shadow:0 8px 24px rgba(0,0,0,.3);}
 .me-img-bar-label{color:#9a9db0;font-size:12px;}
 .me-img-bar-btn{background:none;border:1px solid #3a3a52;color:#cdd0e0;border-radius:5px;padding:3px 10px;font-size:12px;cursor:pointer;}

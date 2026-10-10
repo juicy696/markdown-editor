@@ -297,7 +297,7 @@
     ol: 'format_list_numbered', task: 'checklist', link: 'link',
     image: 'image', audio: 'library_music', video: 'movie',
     code: 'code', table: 'grid_on', hr: 'horizontal_rule',
-    eraser: 'ink_eraser', undo: 'undo', redo: 'redo',
+    eraser: 'ink_eraser',
     codeView: 'code', copy: 'content_copy', close: 'close',
     preview: 'visibility', save: 'save', about: 'info'
   };
@@ -368,11 +368,18 @@
     const mdRef = useRef(value);
     const [modal, setModal] = useState(null);
     const modalRef = useRef(null);
+    const [colorHistory, setColorHistory] = useState([]);
     const modalInputRef = useRef(null);
     useEffect(() => { modalRef.current = modal; }, [modal]);
+    const modalKindRef = useRef(null);
     useEffect(() => {
-      if (modal && modalInputRef.current) modalInputRef.current.focus();
-    }, [modal]);
+      // 仅在弹窗类型切换时聚焦首次输入框；依赖 modal 本体会导致每次输入抢焦点（msg/warn 输入丢失）
+      if (modal && modal.kind !== modalKindRef.current) {
+        modalKindRef.current = modal.kind;
+        if (modalInputRef.current) modalInputRef.current.focus();
+      }
+      if (!modal) modalKindRef.current = null;
+    }, [modal && modal.kind]);
 
     /* sync DOM -> markdown -> parent */
     const sync = useCallback(() => {
@@ -428,7 +435,7 @@
       }
     }, []);
     const restoreSelection = useCallback(() => {
-      editorRef.current.focus();
+      editorRef.current.focus({ preventScroll: true });
       const sel = window.getSelection();
       if (savedRange.current) {
         sel.removeAllRanges();
@@ -437,9 +444,11 @@
     }, []);
 
     const exec = useCallback((act) => {
+      // 代码模式：所有工具栏/弹窗操作改为直接编辑 Markdown 源码文本
+      if (viewMode === 'code') return execCodeMode(act);
       const ed = editorRef.current;
       if (!ed) return;
-      ed.focus();
+      ed.focus({ preventScroll: true });
       switch (act) {
         case 'bold': document.execCommand('bold'); break;
         case 'italic': document.execCommand('italic'); break;
@@ -451,8 +460,6 @@
         case 'quote': document.execCommand('formatBlock', false, 'blockquote'); break;
         case 'ul': document.execCommand('insertUnorderedList'); break;
         case 'ol': document.execCommand('insertOrderedList'); break;
-        case 'undo': document.execCommand('undo'); break;
-        case 'redo': document.execCommand('redo'); break;
         case 'codeInline': {
           const sel = window.getSelection();
           const text = sel && sel.rangeCount ? sel.toString() : 'code';
@@ -460,20 +467,10 @@
           break;
         }
         case 'color': {
-          let input = document.getElementById('me-react-color');
-          if (!input) {
-            input = document.createElement('input');
-            input.type = 'color';
-            input.id = 'me-react-color';
-            input.style.cssText = 'position:fixed;opacity:0;pointer-events:none;left:50vw;top:50vh;';
-            document.body.appendChild(input);
-            input.addEventListener('input', () => {
-              document.execCommand('foreColor', false, input.value);
-              sync();
-            });
-          }
-          input.value = '#7c3aed';
-          input.click();
+          // 打开颜色选择弹窗：最近颜色方块 + 自定义选色
+          saveSelection();
+          setColorHistory(loadColorHistory());
+          setModal({ kind: 'color' });
           return;
         }
         case 'eraser': {
@@ -564,6 +561,7 @@
             '<pre class="me-pre" data-me-block="code"><code>// code here\n</code></pre><p><br></p>');
           break;
         case 'table':
+          saveSelection();
           setModal({ kind: 'table', rows: 3, cols: 4 });
           return;
         case 'table-confirm': {
@@ -571,6 +569,7 @@
           const rows = Math.min(Math.max(parseInt(m.rows, 10) || 3, 1), 50);
           const cols = Math.min(Math.max(parseInt(m.cols, 10) || 4, 1), 20);
           setModal(null);
+          restoreSelection();
           let t = '<table class="me-table"><thead><tr>';
           for (let c = 0; c < cols; c++) t += '<th>Header ' + (c + 1) + '</th>';
           t += '</tr></thead><tbody>';
@@ -591,6 +590,182 @@
       sync();
     }, [sync, showToast, saveSelection, restoreSelection]);
 
+    /* ---- 颜色选择：最近颜色（localStorage，最多 20 个）+ 自定义选色 ---- */
+    const loadColorHistory = useCallback(() => {
+      try { return JSON.parse(localStorage.getItem('me_color_history') || '[]'); }
+      catch (err) { return []; }
+    }, []);
+    const applyColor = useCallback((c) => {
+      if (/^#[0-9a-fA-F]{6}$/.test(c)) {
+        setColorHistory(prev => {
+          const list = prev.filter(x => x.toLowerCase() !== c.toLowerCase());
+          list.unshift(c.toLowerCase());
+          const capped = list.slice(0, 20);
+          try { localStorage.setItem('me_color_history', JSON.stringify(capped)); } catch (err) {}
+          return capped;
+        });
+      }
+      setModal(null);
+      if (viewMode === 'code') {
+        const ta = codeEditRef.current;
+        if (!ta) return;
+        const st = ta.selectionStart, en = ta.selectionEnd;
+        const sel = ta.value.substring(st, en);
+        if (!sel) { showToast('Select text first'); return; }
+        const wrapped = '<span style="color:' + c + '">' + sel + '</span>';
+        const newPos = st + wrapped.length;
+        mdRef.current = ta.value.substring(0, st) + wrapped + ta.value.substring(en);
+        setMarkdown(mdRef.current);
+        if (onChange) onChange(mdRef.current);
+        requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(newPos, newPos); });
+        return;
+      }
+      restoreSelection();
+      document.execCommand('foreColor', false, c);
+      sync();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewMode, restoreSelection, sync, showToast, onChange]);
+
+    /* ---- 代码模式：工具栏/弹窗直接编辑 Markdown 文本（textarea 为真源） ---- */
+    const codeWrap = useCallback((before, after, placeholder) => {
+      const ta = codeEditRef.current;
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      const sel = ta.value.substring(st, en) || placeholder;
+      const newText = ta.value.substring(0, st) + before + sel + after + ta.value.substring(en);
+      const selStart = st + before.length, selEnd = selStart + sel.length;
+      mdRef.current = newText;
+      setMarkdown(newText);
+      if (onChange) onChange(newText);
+      requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(selStart, selEnd); });
+    }, [onChange]);
+    const codePrefixLines = useCallback((prefixFn) => {
+      const ta = codeEditRef.current;
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      const val = ta.value;
+      const lineStart = val.lastIndexOf('\n', st - 1) + 1;
+      let lineEnd = val.indexOf('\n', en);
+      if (lineEnd === -1) lineEnd = val.length;
+      const out = val.substring(lineStart, lineEnd).split('\n')
+        .map((l, i) => prefixFn(l, () => i + 1)).join('\n');
+      const newText = val.substring(0, lineStart) + out + val.substring(lineEnd);
+      mdRef.current = newText;
+      setMarkdown(newText);
+      if (onChange) onChange(newText);
+      requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(lineStart, lineStart + out.length); });
+    }, [onChange]);
+    const codeInsert = useCallback((text) => {
+      const ta = codeEditRef.current;
+      if (!ta) return;
+      const st = ta.selectionStart, en = ta.selectionEnd;
+      const newText = ta.value.substring(0, st) + text + ta.value.substring(en);
+      const pos = st + text.length;
+      mdRef.current = newText;
+      setMarkdown(newText);
+      if (onChange) onChange(newText);
+      requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(pos, pos); });
+    }, [onChange]);
+    const execCodeMode = useCallback((act) => {
+      const ta = codeEditRef.current;
+      if (!ta) return;
+      const m = modalRef.current || {};
+      const val = (v) => (v || '').trim();
+      switch (act) {
+        case 'bold': return codeWrap('**', '**', '加粗文字');
+        case 'italic': return codeWrap('*', '*', '斜体文字');
+        case 'strike': return codeWrap('~~', '~~', '删除线');
+        case 'codeInline': return codeWrap('`', '`', 'code');
+        case 'h1': return codePrefixLines(l => l.startsWith('# ') ? l : '# ' + l);
+        case 'h2': return codePrefixLines(l => l.startsWith('## ') ? l : '## ' + l);
+        case 'h3': return codePrefixLines(l => l.startsWith('### ') ? l : '### ' + l);
+        case 'para': return codePrefixLines(l => l.replace(/^#{1,6}\s+/, ''));
+        case 'quote': return codePrefixLines(l => l.startsWith('> ') ? l : '> ' + l);
+        case 'ul': return codePrefixLines(l => l.startsWith('- ') ? l : '- ' + l);
+        case 'ol': return codePrefixLines((l, next) => /^\d+\.\s/.test(l) ? l : (next() || 1) + '. ' + l);
+        case 'task': return codePrefixLines(l => /^- \[[ x]\] /.test(l) ? l : '- [ ] ' + l);
+        case 'codeBlock': return codeInsert('\n```\ncode here\n```\n');
+        case 'hr': return codeInsert('\n---\n');
+        case 'eraser': case 'undo': case 'redo': case 'save': return;
+        case 'color':
+          setColorHistory(loadColorHistory());
+          setModal({ kind: 'color' });
+          return;
+        case 'link':
+          setModal({ kind: 'link', url: '', text: '' });
+          return;
+        case 'link-confirm': {
+          const url = val(m.url), text = val(m.text) || val(m.url);
+          if (!url) { showToast('Link URL is required'); return; }
+          setModal(null);
+          codeInsert('[' + text + '](' + url + ')');
+          return;
+        }
+        case 'image':
+          setModal({ kind: 'image', title: '', url: '' });
+          return;
+        case 'image-confirm': {
+          const url = val(m.url), title = val(m.title);
+          if (!url) { showToast('Image URL is required'); return; }
+          setModal(null);
+          codeInsert('![' + (title || 'image') + '](' + url + ')');
+          return;
+        }
+        case 'audio':
+          setModal({ kind: 'audio', url: '' });
+          return;
+        case 'audio-confirm': {
+          const url = val(m.url);
+          if (!url) { showToast('Audio URL is required'); return; }
+          setModal(null);
+          codeInsert('<audio src="' + url + '" controls></audio>');
+          return;
+        }
+        case 'video':
+          setModal({ kind: 'video', url: '' });
+          return;
+        case 'video-confirm': {
+          const url = val(m.url);
+          if (!url) { showToast('Video URL is required'); return; }
+          setModal(null);
+          codeInsert('<video src="' + url + '" controls style="max-width:100%;border-radius:8px"></video>');
+          return;
+        }
+        case 'message':
+          setModal({ kind: 'message', text: '', msgType: 'msg' });
+          return;
+        case 'message-confirm': {
+          const text = val(m.text);
+          if (!text) { showToast('Message text is required'); return; }
+          const t = (m.msgType === 'err' || m.msgType === 'msg') ? m.msgType : 'warn';
+          setModal(null);
+          codeInsert('\n<div class="me-msg me-msg-' + t + '">' +
+            '<svg viewBox="0 -960 960 960" style="width:16px;height:16px;flex-shrink:0;fill:currentColor" aria-hidden="true"><path d="' + SVG[t] + '"/></svg>' +
+            '<span>' + escHtml(text) + '</span></div>\n');
+          return;
+        }
+        case 'table':
+          setModal({ kind: 'table', rows: 3, cols: 4 });
+          return;
+        case 'table-confirm': {
+          const rows = Math.min(Math.max(parseInt(m.rows, 10) || 3, 1), 50);
+          const cols = Math.min(Math.max(parseInt(m.cols, 10) || 4, 1), 20);
+          setModal(null);
+          let md = '\n| ';
+          for (let c = 0; c < cols; c++) md += 'Header ' + (c + 1) + (c < cols - 1 ? ' | ' : ' |\n');
+          md += '| ';
+          for (let c = 0; c < cols; c++) md += '---' + (c < cols - 1 ? ' | ' : ' |\n');
+          for (let r = 0; r < rows - 1; r++) {
+            md += '| ';
+            for (let c = 0; c < cols; c++) md += ' ' + (c < cols - 1 ? ' | ' : ' |\n');
+          }
+          codeInsert(md);
+          return;
+        }
+        default: return;
+      }
+    }, [codeWrap, codePrefixLines, codeInsert, loadColorHistory, showToast]);
+
     /* view mode: wysiwyg <-> code */
     const toggleView = useCallback(() => {
       if (viewMode === 'wysiwyg') {
@@ -599,8 +774,11 @@
         setMarkdown(md);
         setViewMode('code');
       } else {
-        // 回到编辑模式：textarea 内容重新解析渲染
-        if (mdRef.current !== value) {
+        // 回到编辑模式：textarea 内容重新解析渲染（无论 value 是否已同步，
+        // 只要代码模式里改过内容就必须重建 innerHTML）
+        if (codeEditRef.current && editorRef.current) {
+          const latest = codeEditRef.current.value;
+          if (mdRef.current !== latest) mdRef.current = latest;
           editorRef.current.innerHTML = MdParser.parse(mdRef.current || '');
         }
         setViewMode('wysiwyg');
@@ -821,16 +999,10 @@
             )
           ),
           e('div', { className: 'me-toolbar-right' },
-            e('button', { className: 'me-tool me-eraser', title: 'Clear formatting', disabled: true },
-              e('span', { className: 'material-icons' }, 'ink_eraser')),
-            e('button', { className: 'me-tool', title: 'Undo', onClick: () => exec('undo') },
-              e('span', { className: 'material-icons' }, 'undo')),
-            e('button', { className: 'me-tool', title: 'Redo', onClick: () => exec('redo') },
-              e('span', { className: 'material-icons' }, 'redo')),
-            opts.showViewCode !== false && e('button', { className: 'me-tool', title: 'View Markdown', onClick: toggleView },
+            opts.showViewCode !== false && e('button', { className: 'me-tool', title: viewMode === 'code' ? '预览模式' : 'View Markdown', onClick: toggleView },
               e('span', { className: 'material-icons' }, viewMode === 'code' ? 'visibility' : 'code')),
-            opts.showCopy !== false && e('button', { className: 'me-tool', title: 'Copy Markdown', onClick: copyMarkdown },
-              e('span', { className: 'material-icons' }, 'content_copy'))
+            opts.showCopy !== false && e('button', { className: 'me-tool', title: '信息', onClick: () => setShowAbout(true) },
+              e('span', { className: 'material-icons' }, 'info'))
           )
         )
       ),
@@ -885,11 +1057,25 @@
       modal && e('div', { className: 'me-modal', onClick: (ev) => { if (ev.target === ev.currentTarget) setModal(null); } },
         e('div', { className: 'me-modal-box me-modal-form' },
           e('div', { className: 'me-modal-head' },
-            e('span', null, { image: 'Insert Image', audio: 'Insert Audio', video: 'Insert Video', table: 'Insert Table', link: 'Insert Link', message: 'Insert Message' }[modal.kind]),
+            e('span', null, { image: 'Insert Image', audio: 'Insert Audio', video: 'Insert Video', table: 'Insert Table', link: 'Insert Link', message: 'Insert Message', color: '文字颜色' }[modal.kind]),
             e('button', { className: 'me-nav-btn', onClick: () => setModal(null) },
               e('span', { className: 'material-icons' }, 'close'))
           ),
-          e('div', { className: 'me-form-body' },
+          modal.kind === 'color' ? e('div', { className: 'me-form-body' },
+            e('div', { className: 'me-color-grid' },
+              colorHistory.map((c, i) =>
+                e('button', { key: c + '-' + i, type: 'button', className: 'me-color-swatch', style: { background: c }, title: c, onClick: () => applyColor(c) })),
+              e('button', { type: 'button', className: 'me-color-swatch me-color-pick-tile', title: '选择自定义颜色…' },
+                e('input', { type: 'color', defaultValue: colorHistory[0] || '#7c3aed', ref: (el) => {
+                  // React 的 onChange 对 color input 等同原生 input 事件（拖动即触发）。
+                  // 用原生 change 事件：只在确认选色后触发一次
+                  if (el && !el._changeBound) {
+                    el._changeBound = true;
+                    el.addEventListener('change', (ev) => applyColor(ev.target.value));
+                  }
+                } }))
+            )
+          ) : e('div', { className: 'me-form-body' },
             modal.kind === 'table' && [
               e('label', { className: 'me-field', key: 'cols' },
                 e('span', null, 'Columns ', e('em', { className: 'me-dim2' }, '(1-20, default 4)')),
@@ -910,11 +1096,11 @@
             ],
             modal.kind === 'link' && [
               e('label', { className: 'me-field', key: 'ltext' },
-                e('span', null, '标题 / 显示文本'),
+                e('span', null, 'Title / Display text'),
                 e('input', {
                   type: 'text', value: modal.text,
                   onChange: (ev) => setModal({ ...modal, text: ev.target.value }),
-                  placeholder: '链接标题（留空则显示 URL）',
+                  placeholder: 'Link title (leave empty to show URL)',
                   ref: modalInputRef
                 })
               ),
@@ -953,8 +1139,7 @@
               e('input', {
                 type: 'text', value: modal.title,
                 onChange: (ev) => setModal({ ...modal, title: ev.target.value }),
-                placeholder: 'Image title',
-                ref: modalInputRef
+                placeholder: 'Image title'
               })
             ),
             modal.kind !== 'table' && modal.kind !== 'link' && modal.kind !== 'message' && e('label', { className: 'me-field', key: 'url' },
@@ -1042,6 +1227,16 @@
 .me-about-logo{font-size:56px;color:#7c6cff;}
 .me-ver{color:#8b8ea0;font-size:13px;}
 .me-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1e1e2e;color:#fff;padding:10px 22px;border-radius:8px;font-size:13.5px;z-index:200;}
+/* Color modal: recent swatches + custom pick tile */
+.me-color-grid{display:flex;flex-wrap:wrap;gap:8px;min-height:40px;}
+.me-color-swatch{width:36px;height:36px;border-radius:8px;border:2px solid rgba(0,0,0,.08);cursor:pointer;padding:0;transition:transform .12s;}
+.me-color-swatch:hover{transform:scale(1.12);border-color:rgba(0,0,0,.25);}
+.me-color-pick-tile{position:relative;background:#8a8fa3;overflow:hidden;}
+.me-color-pick-tile::after{content:'+';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;pointer-events:none;}
+.me-color-pick-tile input[type=color]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;cursor:pointer;z-index:1;}
+/* modal close button: dark hover on light modal background */
+.me-modal .me-nav-btn{color:#8b8ea0;}
+.me-modal .me-nav-btn:hover{background:#1e1e2e;color:#fff;}
 /* Message modal: type picker + input in one row */
 .me-msg-row{display:flex;align-items:stretch;border-radius:10px;overflow:hidden;border:1px solid #eceef4;transition:background .15s;}
 .me-msg-row:focus-within{border-color:#7c6cff;box-shadow:0 0 0 3px rgba(124,108,255,.15);}
