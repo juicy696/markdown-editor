@@ -1,6 +1,6 @@
 {
   "name": "@juicy696/markdown-editor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zero-dependency, single-file WYSIWYG Markdown editor. Edit visually, store as Markdown. Works with vanilla JS, Vue 3 and React 18.",
   "main": "src/me-editor.js",
   "exports": {

@@ -1,6 +1,6 @@
 /* ============================================================
  * ME.js — WYSIWYG Markdown Editor Framework (vanilla JS)
- * Version: 0.2.0
+ * Version: 1.1.0
  *
  * Editing model:
  *   - WYSIWYG rich editing (preview mode): you edit rendered text,
@@ -1996,7 +1996,7 @@
 
   /* ---------- Export ---------- */
   const ME = {
-    version: '0.2.0',
+    version: '1.1.0',
     Editor,
     MdParser,
     MdSerializer,
